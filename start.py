@@ -215,7 +215,7 @@ class OllamaBot:
 
             if result.returncode == 0:
                 # 假设 image.py 输出图片路径到 stdout
-                image_path = result.output.strip()
+                image_path = result.stdout.strip()
                 if image_path:
                     # 发送图片
                     with open(image_path, "rb") as photo:
