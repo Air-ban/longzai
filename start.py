@@ -208,7 +208,7 @@ class OllamaBot:
         try:
             # 运行 image.py 脚本
             result = subprocess.run(
-                ["python", "image.py", "--prompt", prompt, "--api_file", api_file],
+                ["python3", "image.py", "--prompt", prompt, "--api_file", api_file],
                 capture_output=True,
                 text=True
             )
