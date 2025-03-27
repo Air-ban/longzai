@@ -73,21 +73,26 @@ def text_to_image(prompt_text, local_save_dir='./output', api_file='api_demo.jso
     
     # 如果需要，可以在这里更新其他参数，例如：
     # prompt["17"]["inputs"]["steps"] = 30
-    # prompt["27"]["inputs"]["width"] = 768
-    # prompt["27"]["inputs"]["height"] = 768
+    prompt["27"]["inputs"]["width"] = 768
+    prompt["27"]["inputs"]["height"] = 768
     
     ws = websocket.WebSocket()
     ws.connect(f"ws://{server_address}/ws?clientId={client_id}")
     images = get_images(ws, prompt)
     
     os.makedirs(local_save_dir, exist_ok=True)
+    save_paths = []  # 用于存储生成的图片路径
     for node_id in images:
         for i, image_data in enumerate(images[node_id]):
             image = Image.open(io.BytesIO(image_data))
             save_path = f"{local_save_dir}/{prompt_text[:20]}_{i}.png"
             image.save(save_path)
-            print(f"Saved image to {save_path}")
+            print(f"Saved image to {save_path}")  # 打印保存路径到标准输出
+            save_paths.append(save_path)
     ws.close()
+    
+    # 返回所有生成的图片路径
+    return save_paths
 
 # 主函数，执行绘图操作
 if __name__ == "__main__":
@@ -101,8 +106,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # 调用文本到图像函数
-    text_to_image(
+    save_paths = text_to_image(
         prompt_text=args.prompt,
         api_file=args.api_file,
         local_save_dir=args.local_save_dir
     )
+    
+    # 打印所有生成的图片路径
+    for path in save_paths:
+        print(path)
