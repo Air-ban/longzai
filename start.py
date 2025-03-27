@@ -76,6 +76,7 @@ class OllamaBot:
         - /set_temperature <temperature>：设置自定义 temperature 参数
         - /set_top_p <top_p>：设置自定义 top_p 参数
         - /image <prompt>：生成图片
+        - /reset_settings：还原所有设置为系统默认值
         - /help：显示帮助信息
         """
         await update.message.reply_text(help_msg)
@@ -84,7 +85,7 @@ class OllamaBot:
         """设置自定义 system_prompt"""
         user_id = update.effective_user.id
         if not context.args:
-            await update.message.reply_text("已恢复默认提示词")
+            await update.message.reply_text("使用方式为/system_prompt <prompt>")
             return
 
         system_prompt = " ".join(context.args)
@@ -95,7 +96,7 @@ class OllamaBot:
         """设置自定义 temperature 参数"""
         user_id = update.effective_user.id
         if not context.args:
-            await update.message.reply_text("已恢复默认参数")
+            await update.message.reply_text("使用方式为/temperatrue <num>")
             return
 
         try:
@@ -124,6 +125,22 @@ class OllamaBot:
             await update.message.reply_text(f"✅ 已设置自定义 top_p 参数为 {top_p}")
         except ValueError:
             await update.message.reply_text("请输入有效的数字作为 top_p 的值。")
+
+    async def handle_reset_settings(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """还原所有设置为系统默认值"""
+        user_id = update.effective_user.id
+
+        # 还原 system_prompt 到默认值
+        self.user_system_prompts.pop(user_id, None)
+        await update.message.reply_text(f"✅ 已还原 system_prompt 到默认值")
+
+        # 还原 temperature 到默认值
+        self.user_temperatures.pop(user_id, None)
+        await update.message.reply_text(f"✅ 已还原 temperature 到默认值 {self.default_temperature}")
+
+        # 还原 top_p 到默认值
+        self.user_top_ps.pop(user_id, None)
+        await update.message.reply_text(f"✅ 已还原 top_p 到默认值 {self.default_top_p}")
 
     async def generate_response(self, user_id: int, prompt: str, user_name: str) -> str:
         """生成AI回复（带上下文和动态系统提示词），并删除<think>部分"""
@@ -250,6 +267,7 @@ def main():
     application.add_handler(CommandHandler("set_temperature", bot.handle_set_temperature))
     application.add_handler(CommandHandler("set_top_p", bot.handle_set_top_p))
     application.add_handler(CommandHandler("image", bot.handle_image))
+    application.add_handler(CommandHandler("reset_settings", bot.handle_reset_settings))  # 添加 reset_settings 命令处理器
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_message))
 
     # 启动机器人
