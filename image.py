@@ -87,7 +87,7 @@ def text_to_image(prompt_text, local_save_dir='./output', api_file='api_demo.jso
             image = Image.open(io.BytesIO(image_data))
             save_path = f"{local_save_dir}/{prompt_text[:20]}_{i}.png"
             image.save(save_path)
-            print(f"Saved image to {save_path}")  # 打印保存路径到标准输出
+            print("{save_path}")  # 打印保存路径到标准输出
             save_paths.append(save_path)
     ws.close()
     
