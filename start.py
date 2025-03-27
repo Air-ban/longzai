@@ -1,6 +1,7 @@
 import os
 import logging
 import re
+import subprocess  # 用于运行 image.py 脚本
 from collections import deque
 from typing import Dict, Deque, Optional
 from telegram import Update
@@ -74,6 +75,7 @@ class OllamaBot:
         - /set_system_prompt <prompt>：设置自定义 system_prompt
         - /set_temperature <temperature>：设置自定义 temperature 参数
         - /set_top_p <top_p>：设置自定义 top_p 参数
+        - /image <prompt>：生成图片
         - /help：显示帮助信息
         """
         await update.message.reply_text(help_msg)
@@ -83,20 +85,17 @@ class OllamaBot:
         user_id = update.effective_user.id
         if not context.args:
             await update.message.reply_text("已恢复默认提示词")
-	   # self.user_system_prompts[user_id]=default_system_prompt	    
-		
             return
 
         system_prompt = " ".join(context.args)
         self.user_system_prompts[user_id] = system_prompt
-        await update.message.reply_text(f"✅ 已设置自定 义 system_prompt:\n{system_prompt}")
+        await update.message.reply_text(f"✅ 已设置自定义 system_prompt:\n{system_prompt}")
 
     async def handle_set_temperature(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """设置自定义 temperature 参数"""
         user_id = update.effective_user.id
         if not context.args:
             await update.message.reply_text("已恢复默认参数")
-	   # self.user_temperatures[user_id]=0.4	    
             return
 
         try:
@@ -105,30 +104,29 @@ class OllamaBot:
                 await update.message.reply_text("temperature 的值应在 0 到 2 之间。")
                 return
             self.user_temperatures[user_id] = temperature
-            await update.message.reply_text(f"✅ 已设置 自定义 temperature 参数为 {temperature}")
+            await update.message.reply_text(f"✅ 已设置自定义 temperature 参数为 {temperature}")
         except ValueError:
-            await update.message.reply_text("请输入有效 的数字作为 temperature 的值。")
+            await update.message.reply_text("请输入有效的数字作为 temperature 的值。")
 
     async def handle_set_top_p(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """设置自定义 top_p 参数"""
         user_id = update.effective_user.id
         if not context.args:
             await update.message.reply_text("请提供 top_p 的值。使用方式：/set_top_p <top_p>")
-	    #self.user_top_ps[user_id]=0.6
             return
 
         try:
             top_p = float(context.args[0])
             if top_p < 0 or top_p > 1:
-                await update.message.reply_text("top_p  的值应在 0 到 1 之间。")
+                await update.message.reply_text("top_p 的值应在 0 到 1 之间。")
                 return
             self.user_top_ps[user_id] = top_p
-            await update.message.reply_text(f"✅ 已设置 自定义 top_p 参数为 {top_p}")
+            await update.message.reply_text(f"✅ 已设置自定义 top_p 参数为 {top_p}")
         except ValueError:
-            await update.message.reply_text("请输入有效 的数字作为 top_p 的值。")
+            await update.message.reply_text("请输入有效的数字作为 top_p 的值。")
 
     async def generate_response(self, user_id: int, prompt: str, user_name: str) -> str:
-        """生成AI回复（带上下文和动态系统提示词），并删 除<think>部分"""
+        """生成AI回复（带上下文和动态系统提示词），并删除<think>部分"""
         try:
             # 获取或初始化对话历史
             history = self.user_histories.get(user_id, deque(maxlen=MAX_HISTORY))
@@ -140,10 +138,10 @@ class OllamaBot:
                 "content": system_prompt_content
             }
 
-            # 获取用户自定义的 temperature 参数，如果没 有则使用默认值
+            # 获取用户自定义的 temperature 参数，如果没有则使用默认值
             temperature = self.user_temperatures.get(user_id, self.default_temperature)
 
-            # 获取用户自定义的 top_p 参数，如果没有则使 用默认值
+            # 获取用户自定义的 top_p 参数，如果没有则使用默认值
             top_p = self.user_top_ps.get(user_id, self.default_top_p)
 
             # 构造消息列表（包含动态系统提示词）
@@ -161,7 +159,6 @@ class OllamaBot:
 
             # 使用正则表达式删除<think>部分
             response = re.sub(r"<think>.*?</think>|\{.*?\}|'''[^']*'''|\"\"\"[^\"']*\"\"\"", "", response, flags=re.DOTALL).strip()
-
 
             # 更新对话历史
             history.extend([
@@ -199,6 +196,45 @@ class OllamaBot:
             logger.error(f"消息处理异常: {str(e)}")
             await update.message.reply_text("❌ 处理请求时发生错误")
 
+    async def handle_image(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """处理/image命令"""
+        if not context.args:
+            await update.message.reply_text("请提供提示词。使用方式：/image <prompt>")
+            return
+
+        prompt = " ".join(context.args)
+        api_file = "flux_workflow.json"  # 默认 API 文件路径
+
+        try:
+            # 运行 image.py 脚本
+            result = subprocess.run(
+                ["python", "image.py", "--prompt", prompt, "--api_file", api_file],
+                capture_output=True,
+                text=True
+            )
+
+            if result.returncode == 0:
+                # 假设 image.py 输出图片路径到 stdout
+                image_path = result.output.strip()
+                if image_path:
+                    # 发送图片
+                    with open(image_path, "rb") as photo:
+                        await update.message.reply_photo(photo)
+                    
+                    # 删除图片文件
+                    try:
+                        os.remove(image_path)
+                        logger.info(f"已删除图片文件: {image_path}")
+                    except Exception as e:
+                        logger.error(f"删除图片文件失败: {str(e)}")
+                else:
+                    await update.message.reply_text("图片生成失败，未返回有效路径。")
+            else:
+                await update.message.reply_text(f"图片生成失败:\n{result.stderr}")
+        except Exception as e:
+            logger.error(f"图片生成异常: {str(e)}")
+            await update.message.reply_text("❌ 图片生成时发生错误")
+
 def main():
     # 初始化机器人
     bot = OllamaBot()
@@ -213,6 +249,7 @@ def main():
     application.add_handler(CommandHandler("set_system_prompt", bot.handle_set_system_prompt))
     application.add_handler(CommandHandler("set_temperature", bot.handle_set_temperature))
     application.add_handler(CommandHandler("set_top_p", bot.handle_set_top_p))
+    application.add_handler(CommandHandler("image", bot.handle_image))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_message))
 
     # 启动机器人
