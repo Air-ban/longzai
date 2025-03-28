@@ -200,7 +200,7 @@ class OllamaBot:
             return
 
         prompt = " ".join(context.args)
-        api_file = "image_api.json"  # 默认 API 文件路径
+        api_file = "flux_workflow.json"  # 默认 API 文件路径
         local_save_dir = "./output"  # 默认保存目录
 
         user_id = update.effective_user.id
@@ -215,7 +215,7 @@ class OllamaBot:
             # 运行 image.py 脚本
             result = subprocess.run(
                 [
-                    "python", "image.py",
+                    "python3", "image.py",
                     "--prompt", prompt,
                     "--api_file", api_file,
                     "--lora1_name", lora1_name,

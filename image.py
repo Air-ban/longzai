@@ -59,13 +59,13 @@ def get_images(ws, prompt):
     return output_images
 
 # 定义读取工作流 JSON 文件的函数
-def read_json(api_file="api_demo.json"):
+def read_json(api_file="flux_workflow.json"):
     with open(api_file, "r", encoding="utf-8") as file_json:
         prompt_text = json.load(file_json)
     return prompt_text
 
 # 定义文本到图像的函数
-def text_to_image(prompt_text, local_save_dir='./output', api_file='api_demo.json'):
+def text_to_image(prompt_text, local_save_dir='./output', api_file='flux_workflow.json', lora1_name=None, lora1_strength=None, lora2_name=None, lora2_strength=None):
     prompt = read_json(api_file)
     
     # 更新文本提示
@@ -75,6 +75,16 @@ def text_to_image(prompt_text, local_save_dir='./output', api_file='api_demo.jso
     # prompt["17"]["inputs"]["steps"] = 30
     prompt["27"]["inputs"]["width"] = 768
     prompt["27"]["inputs"]["height"] = 768
+    
+    # 更新 LoRA 设置
+    if lora1_name is not None:
+        prompt["31"]["inputs"]["lora_name"] = lora1_name
+    if lora1_strength is not None:
+        prompt["31"]["inputs"]["strength_model"] = lora1_strength
+    if lora2_name is not None:
+        prompt["32"]["inputs"]["lora_name"] = lora2_name
+    if lora2_strength is not None:
+        prompt["32"]["inputs"]["strength_model"] = lora2_strength
     
     ws = websocket.WebSocket()
     ws.connect(f"ws://{server_address}/ws?clientId={client_id}")
@@ -98,8 +108,12 @@ if __name__ == "__main__":
     # 创建命令行参数解析器
     parser = argparse.ArgumentParser(description='使用 ComfyUI API 进行文本到图像生成')
     parser.add_argument('--prompt', type=str, required=True, help='自定义的文本提示词')
-    parser.add_argument('--api_file', type=str, default='api_demo.json', help='工作流 JSON 文件路径')
+    parser.add_argument('--api_file', type=str, default='flux_workflow.json', help='工作流 JSON 文件路径')
     parser.add_argument('--local_save_dir', type=str, default='./output', help='生成图像的保存目录')
+    parser.add_argument('--lora1_name', type=str, help='第一个 LoRA 的名称')
+    parser.add_argument('--lora1_strength', type=float, help='第一个 LoRA 的强度')
+    parser.add_argument('--lora2_name', type=str, help='第二个 LoRA 的名称')
+    parser.add_argument('--lora2_strength', type=float, help='第二个 LoRA 的强度')
     
     # 解析命令行参数
     args = parser.parse_args()
@@ -108,7 +122,11 @@ if __name__ == "__main__":
     save_paths = text_to_image(
         prompt_text=args.prompt,
         api_file=args.api_file,
-        local_save_dir=args.local_save_dir
+        local_save_dir=args.local_save_dir,
+        lora1_name=args.lora1_name,
+        lora1_strength=args.lora1_strength,
+        lora2_name=args.lora2_name,
+        lora2_strength=args.lora2_strength
     )
     
     # 打印所有生成的图片路径
