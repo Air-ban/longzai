@@ -4,7 +4,7 @@ import re
 import subprocess
 from collections import deque
 from typing import Dict, Deque, Optional
-from telegram import Update, ChatAction
+from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -45,7 +45,7 @@ class OllamaBot:
         self.default_lora1_name = "kaiwen_adobe_penis_000004000.safetensors"  # 默认 LoRA1 名称
         self.default_lora1_strength = 1.0  # 默认 LoRA1 强度
         self.default_lora2_name = "fluxpiruan-000012.safetensors"  # 默认 LoRA2 名称
-        self.default_lora2_strength = 0.8  # 默认 LoRA2 强度
+        self.default_lora2_strength = 0.7  # 默认 LoRA2 强度
         self.preload_model()
 
         # 预设的 LoRA 配置
@@ -54,7 +54,7 @@ class OllamaBot:
                 "lora1_name": "kaiwen_adobe_penis_000004000.safetensors",
                 "lora1_strength": 1.0,
                 "lora2_name": "fluxpiruan-000012.safetensors",
-                "lora2_strength": 0.8
+                "lora2_strength": 0.6
             },
             # 可以添加更多预设
         }
@@ -212,12 +212,6 @@ class OllamaBot:
         lora2_strength = self.user_lora2_strength.get(user_id, self.default_lora2_strength)
 
         try:
-            # 显示“输入中”状态
-            await context.bot.send_chat_action(
-                chat_id=update.effective_chat.id,
-                action=ChatAction.TYPING
-            )
-
             # 运行 image.py 脚本
             result = subprocess.run(
                 [
@@ -255,12 +249,6 @@ class OllamaBot:
         except Exception as e:
             logger.error(f"图片生成异常: {str(e)}")
             await update.message.reply_text("❌ 图片生成时发生错误")
-        finally:
-            # 结束后清除“输入中”状态
-            await context.bot.send_chat_action(
-                chat_id=update.effective_chat.id,
-                action=ChatAction.CANCEL
-            )
 
 def main():
     # 初始化机器人
