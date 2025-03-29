@@ -62,15 +62,15 @@ class OllamaBot:
             },
             "龙仔": {
                 "lora1_name": "pxr.safetensors",
-                "lora1_strength": 0.9,
+                "lora1_strength": 1.0,
                 "lora2_name": "fluxpiruan-000012.safetensors",
                 "lora2_strength": 0.7
             },
             "李球球": {
                 "lora1_name": "liqiuqiu.safetensors",
-                "lora1_strength": 0.9,
+                "lora1_strength": 1.0,
                 "lora2_name": "fluxpiruan-000012.safetensors",
-                "lora2_strength": 0.7
+                "lora2_strength": 0.8
             }
         }
 
