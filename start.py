@@ -75,7 +75,32 @@ class OllamaBot:
 
     async def initialize(self):
         """异步初始化"""
-    
+        logger.info("开始模型预加载...")
+        try:
+            # 使用系统默认配置发送预热请求
+            messages = [
+                {"role": "system", "content": self.default_system_prompt},
+                {"role": "user", "content": "你好"}
+            ]
+            
+            # 发送一个简单的请求来触发模型加载
+            async for chunk in await self.client.chat(
+                model=OLLAMA_MODEL,
+                messages=messages,
+                stream=True,
+                options={
+                    "temperature": self.default_temperature,
+                    "top_p": self.default_top_p,
+                    "keep_alive": -1
+                }
+            ):
+                # 忽略响应内容，只触发模型加载
+                pass
+            
+            logger.info("✅ 模型预加载完成")
+        except Exception as e:
+            logger.error(f"预加载失败: {str(e)}")
+            # 此处不阻断启动，仅记录错误
 
 
     async def handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
