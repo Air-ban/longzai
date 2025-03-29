@@ -184,27 +184,26 @@ class OllamaBot:
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = update.message
         user = update.effective_user
-        user_input = message.text
-
-        # 群组消息处理逻辑
-        if message.chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
+        
+        # 自动处理私聊和群组消息
+        if message.chat.type == ChatType.PRIVATE:
+            user_input = message.text
+        else:
+            # 群组消息必须包含@提及
             bot_username = context.bot.username
             if not bot_username:
-                logger.error("机器人用户名未设置")
                 return
 
-            # 手动检查提及
-            mentioned = any(
-                entity.type == MessageEntityType.MENTION
-                and message.text[entity.offset:entity.offset+entity.length].lower() == f"@{bot_username.lower()}"
-                for entity in message.entities or []
-            )
-
-            if not mentioned:
+            # 使用正则表达式匹配@提及
+            mention_pattern = re.compile(rf"@({re.escape(bot_username)}", re.IGNORECASE)
+            if not mention_pattern.search(message.text):
                 return
-
-            # 移除@提及
-            user_input = re.sub(fr"@{re.escape(bot_username)}\s*", "", user_input, flags=re.IGNORECASE).strip()
+            
+            # 移除提及内容
+            user_input = mention_pattern.sub("", message.text).strip()
+            if not user_input:
+                await message.reply_text("请发送有效内容")
+                return
 
         await context.bot.send_chat_action(
             chat_id=update.effective_chat.id,
@@ -308,8 +307,8 @@ async def main():
             CommandHandler("log", bot.handle_log),
             MessageHandler(
                 filters.TEXT & ~filters.COMMAND & (
-                    filters.ChatType.PRIVATE | 
-                    filters.Mentioned(entity_type=MessageEntity.MENTION)
+                    filters.ChatType.PRIVATE |
+                    (filters.ChatType.GROUPS & filters.Entity(MessageEntityType.MENTION))
                 ),
                 bot.handle_message
             )
