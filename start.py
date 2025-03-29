@@ -4,7 +4,7 @@ import re
 import subprocess
 from collections import deque
 from typing import Dict, Deque, Optional
-from telegram import Update, ChatAction
+from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
