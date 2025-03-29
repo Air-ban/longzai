@@ -3,7 +3,7 @@ import logging
 import re
 import asyncio
 from collections import deque
-from typing import Dict, Deque, Optional
+from typing import Dict, Deque
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -51,7 +51,7 @@ class OllamaBot:
         self.default_lora2_name = "fluxpiruan-000012.safetensors"
         self.default_lora2_strength = 0.8
         
-        # 预设的LoRA配置
+        # 预设配置
         self.lora_presets = {
             "凯文": {
                 "lora1_name": "kaiwen_adobe_penis_000004000.safetensors",
@@ -72,7 +72,10 @@ class OllamaBot:
                 "lora2_strength": 0.7
             }
         }
-        self.preload_model()
+
+    async def initialize(self):
+        """异步初始化"""
+        await self.preload_model()
 
     async def preload_model(self):
         """预加载模型"""
@@ -89,7 +92,6 @@ class OllamaBot:
             logger.error(f"预加载失败: {str(e)}")
 
     async def handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """处理/start命令"""
         user = update.effective_user
         await update.message.reply_text(
             f"👋 你好 {user.first_name}！我是龙仔，你的专属AI弟弟！\n"
@@ -97,13 +99,11 @@ class OllamaBot:
         )
 
     async def handle_reset(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """重置对话历史"""
         user_id = update.effective_user.id
         self.user_histories.pop(user_id, None)
         await update.message.reply_text("✅ 对话历史已重置")
 
     async def handle_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """显示帮助信息"""
         help_msg = (
             "🤖 龙仔机器人使用指南\n\n"
             "常用命令：\n"
@@ -117,7 +117,6 @@ class OllamaBot:
         await update.message.reply_text(help_msg)
 
     async def handle_image_option(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """处理角色预设"""
         if not context.args:
             await update.message.reply_text("请指定预设名称，当前可用：凯文/龙仔/李球球")
             return
@@ -137,7 +136,6 @@ class OllamaBot:
         await update.message.reply_text(f"✅ 已切换至 {preset_name} 模式")
 
     async def generate_response(self, user_id: int, prompt: str) -> str:
-        """生成对话响应"""
         try:
             history = self.user_histories.get(user_id, deque(maxlen=MAX_HISTORY))
             system_prompt = self.user_system_prompts.get(user_id, self.default_system_prompt)
@@ -159,10 +157,8 @@ class OllamaBot:
             ):
                 response += chunk["message"]["content"]
 
-            # 清理响应内容
             response = re.sub(r"<think>.*?</think>|\{.*?\}|```.*?```", "", response, flags=re.DOTALL).strip()
 
-            # 更新历史
             history.extend([
                 {"role": "user", "content": prompt},
                 {"role": "assistant", "content": response}
@@ -175,7 +171,6 @@ class OllamaBot:
             return "⚠️ 服务暂时不可用，请稍后再试"
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """处理文本消息"""
         user = update.effective_user
         user_input = update.message.text
 
@@ -194,7 +189,6 @@ class OllamaBot:
             await update.message.reply_text("❌ 处理请求时发生错误")
 
     async def handle_image(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """异步图片生成"""
         if not context.args:
             await update.message.reply_text("请输入英文提示词，例如：/image a cute boy")
             return
@@ -202,20 +196,17 @@ class OllamaBot:
         prompt = " ".join(context.args)
         user_id = update.effective_user.id
 
-        # 获取LoRA配置
         lora1_name = self.user_lora1_name.get(user_id, self.default_lora1_name)
         lora1_strength = self.user_lora1_strength.get(user_id, self.default_lora1_strength)
         lora2_name = self.user_lora2_name.get(user_id, self.default_lora2_name)
         lora2_strength = self.user_lora2_strength.get(user_id, self.default_lora2_strength)
 
         try:
-            # 显示生成状态
             await context.bot.send_chat_action(
                 chat_id=update.effective_chat.id,
                 action="upload_photo"
             )
 
-            # 异步执行生成
             process = await asyncio.create_subprocess_exec(
                 "python3", "image.py",
                 "--prompt", prompt,
@@ -242,14 +233,13 @@ class OllamaBot:
                         logger.error(f"图片处理失败: {str(e)}")
                         await update.message.reply_text("❌ 图片发送失败")
             else:
-                error_msg = stderr.decode()[:500]  # 截断过长的错误信息
+                error_msg = stderr.decode()[:500]
                 await update.message.reply_text(f"❌ 生成失败：{error_msg}")
         except Exception as e:
             logger.error(f"图片生成异常: {str(e)}")
             await update.message.reply_text("❌ 图片生成时发生错误")
 
     async def handle_log(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """查看更新日志"""
         try:
             async with aiofiles.open("changelog.txt", "r", encoding="utf-8") as f:
                 content = await f.read()
@@ -267,18 +257,15 @@ class OllamaBot:
             logger.error(f"日志读取失败: {str(e)}")
             await update.message.reply_text("❌ 读取日志失败")
 
-def main():
+async def main():
     bot = OllamaBot()
+    await bot.initialize()
     
-    # 配置高并发应用
     application = ApplicationBuilder()\
         .token(TELEGRAM_TOKEN)\
         .concurrent_updates(True)\
-        .pool_size(100)\
-        .pool_timeout(30)\
         .build()
 
-    # 注册处理器
     handlers = [
         CommandHandler("start", bot.handle_start),
         CommandHandler("reset", bot.handle_reset),
@@ -292,7 +279,7 @@ def main():
     application.add_handlers(handlers)
     
     logger.info("机器人启动中...")
-    application.run_polling()
+    await application.run_polling()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
