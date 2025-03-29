@@ -26,13 +26,13 @@ logger = logging.getLogger(__name__)
 # 配置参数
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "longzai:latest")
-MAX_HISTORY = int(os.getenv("MAX_HISTORY", 10))
+MAX_HISTORY = int(os.getenv("MAX_HISTORY", 20))
 MAX_MESSAGE_LENGTH = 4096
 
 class OllamaBot:
     def __init__(self):
         # 显式指定Ollama地址
-        self.client = AsyncClient(host="http://localhost:11434")
+        self.client = AsyncClient(host="http://127.0.0.1:11434")
         self.user_histories: Dict[int, Deque[dict]] = {}
         self.user_system_prompts: Dict[int, str] = {}
         self.user_temperatures: Dict[int, float] = {}
@@ -77,27 +77,7 @@ class OllamaBot:
         """异步初始化"""
         await self.preload_model()
 
-    async def preload_model(self):
-        """带重试机制的模型预加载"""
-        logger.info("正在预加载模型...")
-        max_retries = 3
-        for attempt in range(1, max_retries+1):
-            try:
-                async for _ in await self.client.chat(
-                    model=OLLAMA_MODEL,
-                    messages=[{"role": "user", "content": ""}],
-                    options={"keep_alive": -1}
-                ):
-                    pass
-                logger.info("模型预加载完成")
-                return
-            except Exception as e:
-                if attempt < max_retries:
-                    logger.warning(f"预加载失败，正在进行第 {attempt}/{max_retries} 次重试...")
-                    await asyncio.sleep(2)
-                else:
-                    logger.error(f"预加载失败: {str(e)}")
-                    raise RuntimeError("Ollama服务连接失败，请检查服务状态") from e
+
 
     async def handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = update.effective_user
