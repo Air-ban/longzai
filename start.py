@@ -108,6 +108,7 @@ class OllamaBot:
         - /set_top_p <top_p>：设置自定义 top_p 参数
         - /imaage <propmt>：生成图片，默认为凯文，提示词需要使用全英文
         - /image_option <preset>：指定弟弟生成图片（当前支持：凯文，李球球，龙仔，请期待后续投稿）
+        - /log：查看更新日志
         - /help：显示帮助信息
         """
         await update.message.reply_text(help_msg)
