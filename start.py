@@ -12,7 +12,6 @@ from telegram.ext import (
     MessageHandler,
     filters
 )
-import ollama
 from ollama import AsyncClient
 import aiofiles
 import aiofiles.os as aio_os
@@ -32,7 +31,8 @@ MAX_MESSAGE_LENGTH = 4096
 
 class OllamaBot:
     def __init__(self):
-        self.client = AsyncClient()
+        # 显式指定Ollama地址
+        self.client = AsyncClient(host="http://localhost:11434")
         self.user_histories: Dict[int, Deque[dict]] = {}
         self.user_system_prompts: Dict[int, str] = {}
         self.user_temperatures: Dict[int, float] = {}
@@ -78,18 +78,26 @@ class OllamaBot:
         await self.preload_model()
 
     async def preload_model(self):
-        """预加载模型"""
+        """带重试机制的模型预加载"""
         logger.info("正在预加载模型...")
-        try:
-            async for _ in await self.client.chat(
-                model=OLLAMA_MODEL,
-                messages=[{"role": "user", "content": ""}],
-                options={"keep_alive": -1}
-            ):
-                pass
-            logger.info("模型预加载完成")
-        except Exception as e:
-            logger.error(f"预加载失败: {str(e)}")
+        max_retries = 3
+        for attempt in range(1, max_retries+1):
+            try:
+                async for _ in await self.client.chat(
+                    model=OLLAMA_MODEL,
+                    messages=[{"role": "user", "content": ""}],
+                    options={"keep_alive": -1}
+                ):
+                    pass
+                logger.info("模型预加载完成")
+                return
+            except Exception as e:
+                if attempt < max_retries:
+                    logger.warning(f"预加载失败，正在进行第 {attempt}/{max_retries} 次重试...")
+                    await asyncio.sleep(2)
+                else:
+                    logger.error(f"预加载失败: {str(e)}")
+                    raise RuntimeError("Ollama服务连接失败，请检查服务状态") from e
 
     async def handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = update.effective_user
@@ -258,28 +266,43 @@ class OllamaBot:
             await update.message.reply_text("❌ 读取日志失败")
 
 async def main():
-    bot = OllamaBot()
-    await bot.initialize()
-    
-    application = ApplicationBuilder()\
-        .token(TELEGRAM_TOKEN)\
-        .concurrent_updates(True)\
-        .build()
+    try:
+        bot = OllamaBot()
+        await bot.initialize()
+        
+        application = ApplicationBuilder()\
+            .token(TELEGRAM_TOKEN)\
+            .concurrent_updates(True)\
+            .build()
 
-    handlers = [
-        CommandHandler("start", bot.handle_start),
-        CommandHandler("reset", bot.handle_reset),
-        CommandHandler("help", bot.handle_help),
-        CommandHandler("image", bot.handle_image),
-        CommandHandler("image_option", bot.handle_image_option),
-        CommandHandler("log", bot.handle_log),
-        MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_message)
-    ]
-    
-    application.add_handlers(handlers)
-    
-    logger.info("机器人启动中...")
-    await application.run_polling()
+        handlers = [
+            CommandHandler("start", bot.handle_start),
+            CommandHandler("reset", bot.handle_reset),
+            CommandHandler("help", bot.handle_help),
+            CommandHandler("image", bot.handle_image),
+            CommandHandler("image_option", bot.handle_image_option),
+            CommandHandler("log", bot.handle_log),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_message)
+        ]
+        
+        application.add_handlers(handlers)
+        
+        logger.info("机器人启动中...")
+        
+        await application.initialize()
+        await application.start()
+        await application.updater.start_polling()
+        
+        # 保持主循环运行
+        while True:
+            await asyncio.sleep(3600)
+            
+    except Exception as e:
+        logger.critical(f"致命错误: {str(e)}")
+    finally:
+        if 'application' in locals():
+            await application.stop()
+            await application.shutdown()
 
 if __name__ == "__main__":
     asyncio.run(main())
