@@ -186,26 +186,25 @@ class OllamaBot:
         user = update.effective_user
         user_input = message.text
 
-        # 处理群组消息中的@提及
+        # 群组消息处理逻辑
         if message.chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
             bot_username = context.bot.username
             if not bot_username:
-                await message.reply_text("❌ 机器人用户名未设置")
+                logger.error("机器人用户名未设置")
                 return
 
-            mentioned = False
-            # 检查所有消息实体
-            for entity in message.entities or []:
-                if entity.type == MessageEntityType.MENTION:
-                    mention_text = message.text[entity.offset:entity.offset + entity.length]
-                    if mention_text.lower() == f"@{bot_username.lower()}":
-                        # 去除提及部分
-                        user_input = message.text.replace(mention_text, "", 1).strip()
-                        mentioned = True
-                        break
+            # 手动检查提及
+            mentioned = any(
+                entity.type == MessageEntityType.MENTION
+                and message.text[entity.offset:entity.offset+entity.length].lower() == f"@{bot_username.lower()}"
+                for entity in message.entities or []
+            )
 
             if not mentioned:
-                return  # 没有提及机器人则忽略
+                return
+
+            # 移除@提及
+            user_input = re.sub(fr"@{re.escape(bot_username)}\s*", "", user_input, flags=re.IGNORECASE).strip()
 
         await context.bot.send_chat_action(
             chat_id=update.effective_chat.id,
