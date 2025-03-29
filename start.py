@@ -5,7 +5,7 @@ import asyncio
 from collections import deque
 from typing import Dict, Deque
 from telegram import Update
-from telegram.constants import ChatType, MessageEntity  # 新增导入
+from telegram.constants import ChatType, MessageEntityType # 新增导入
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -196,7 +196,7 @@ class OllamaBot:
             mentioned = False
             # 检查所有消息实体
             for entity in message.entities or []:
-                if entity.type == MessageEntity.MENTION:
+                if entity.type == MessageEntityType.MENTION:
                     mention_text = message.text[entity.offset:entity.offset + entity.length]
                     if mention_text.lower() == f"@{bot_username.lower()}":
                         # 去除提及部分
