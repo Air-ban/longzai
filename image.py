@@ -72,7 +72,7 @@ def text_to_image(prompt_text, local_save_dir='./output', api_file='flux_workflo
     prompt["6"]["inputs"]["text"] = prompt_text
     
     # 如果需要，可以在这里更新其他参数，例如：
-    # prompt["17"]["inputs"]["steps"] = 30
+    prompt["17"]["inputs"]["steps"] = 15
     prompt["27"]["inputs"]["width"] = 768
     prompt["27"]["inputs"]["height"] = 768
     
@@ -92,12 +92,16 @@ def text_to_image(prompt_text, local_save_dir='./output', api_file='flux_workflo
     
     os.makedirs(local_save_dir, exist_ok=True)
     save_paths = []  # 用于存储生成的图片路径
+    
+    # 使用计数器生成唯一的数字文件名
+    counter = 1
     for node_id in images:
         for i, image_data in enumerate(images[node_id]):
             image = Image.open(io.BytesIO(image_data))
-            save_path = f"{local_save_dir}/{prompt_text[:20]}_{i}.png"
+            save_path = f"{local_save_dir}/image_{counter}.png"
             image.save(save_path)
             save_paths.append(save_path)
+            counter += 1
     ws.close()
     
     # 返回所有生成的图片路径

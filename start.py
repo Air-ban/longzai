@@ -4,7 +4,7 @@ import re
 import subprocess
 from collections import deque
 from typing import Dict, Deque, Optional
-from telegram import Update
+from telegram import Update, ChatAction
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -45,7 +45,7 @@ class OllamaBot:
         self.default_lora1_name = "kaiwen_adobe_penis_000004000.safetensors"  # 默认 LoRA1 名称
         self.default_lora1_strength = 1.0  # 默认 LoRA1 强度
         self.default_lora2_name = "fluxpiruan-000012.safetensors"  # 默认 LoRA2 名称
-        self.default_lora2_strength = 0.7  # 默认 LoRA2 强度
+        self.default_lora2_strength = 0.8  # 默认 LoRA2 强度
         self.preload_model()
 
         # 预设的 LoRA 配置
@@ -54,7 +54,19 @@ class OllamaBot:
                 "lora1_name": "kaiwen_adobe_penis_000004000.safetensors",
                 "lora1_strength": 1.0,
                 "lora2_name": "fluxpiruan-000012.safetensors",
-                "lora2_strength": 0.6
+                "lora2_strength": 0.8
+            },
+            "龙仔":{
+                "lora1_name": "pxr.safetensors",
+                "lora1_strength": 0.9,
+                "lora2_name": "fluxpiruan-000012.safetensors",
+                "lora2_strength": 0.7
+            },
+            "李球球":{
+                "lora1_name": "liqiuqiu.safetensors",
+                "lora1_strength": 0.9,
+                "lora2_name": "fluxpiruan-000012.safetensors",
+                "lora2_strength": 0.7
             },
             # 可以添加更多预设
         }
@@ -123,7 +135,7 @@ class OllamaBot:
         await update.message.reply_text(f"已应用预设 '{preset_name}' 的 LoRA 配置。")
 
     async def generate_response(self, user_id: int, prompt: str, user_name: str) -> str:
-        """生成AI回复（带上下文和动态系统提示词），并删除<think>部分"""
+        """生成AI回复（带上下文和动态系统提示词），并删除<think>部分和JSON内容"""
         try:
             # 获取或初始化对话历史
             history = self.user_histories.get(user_id, deque(maxlen=MAX_HISTORY))
@@ -154,8 +166,9 @@ class OllamaBot:
             ):
                 response += chunk["message"]["content"]
 
-            # 使用正则表达式删除<think>部分
+            # 使用正则表达式删除<think>部分和JSON内容
             response = re.sub(r"<think>.*?</think>|\{.*?\}|'''[^']*'''|\"\"\"[^\"']*\"\"\"", "", response, flags=re.DOTALL).strip()
+            response = re.sub(r"```json.*?```", "", response, flags=re.DOTALL).strip()
 
             # 更新对话历史
             history.extend([
