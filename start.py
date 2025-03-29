@@ -75,8 +75,7 @@ class OllamaBot:
 
     async def initialize(self):
         """异步初始化"""
-        await self.preload_model()
-
+    
 
 
     async def handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
