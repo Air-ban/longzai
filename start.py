@@ -5,6 +5,7 @@ import asyncio
 from collections import deque
 from typing import Dict, Deque
 from telegram import Update
+from telegram.constants import ChatType, MessageEntity  # 新增导入
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -100,8 +101,6 @@ class OllamaBot:
             logger.info("✅ 模型预加载完成")
         except Exception as e:
             logger.error(f"预加载失败: {str(e)}")
-            # 此处不阻断启动，仅记录错误
-
 
     async def handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = update.effective_user
@@ -165,7 +164,7 @@ class OllamaBot:
                 model=OLLAMA_MODEL,
                 messages=messages,
                 stream=True,
-                options={"temperature": temperature, "top_p": top_p}
+                options={"temperature": temperature, "top_p": top_p, "keep_alive": -1}
             ):
                 response += chunk["message"]["content"]
 
@@ -183,8 +182,30 @@ class OllamaBot:
             return "⚠️ 服务暂时不可用，请稍后再试"
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        message = update.message
         user = update.effective_user
-        user_input = update.message.text
+        user_input = message.text
+
+        # 处理群组消息中的@提及
+        if message.chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
+            bot_username = context.bot.username
+            if not bot_username:
+                await message.reply_text("❌ 机器人用户名未设置")
+                return
+
+            mentioned = False
+            # 检查所有消息实体
+            for entity in message.entities or []:
+                if entity.type == MessageEntity.MENTION:
+                    mention_text = message.text[entity.offset:entity.offset + entity.length]
+                    if mention_text.lower() == f"@{bot_username.lower()}":
+                        # 去除提及部分
+                        user_input = message.text.replace(mention_text, "", 1).strip()
+                        mentioned = True
+                        break
+
+            if not mentioned:
+                return  # 没有提及机器人则忽略
 
         await context.bot.send_chat_action(
             chat_id=update.effective_chat.id,
@@ -195,10 +216,10 @@ class OllamaBot:
             response = await self.generate_response(user.id, user_input)
             while response:
                 chunk, response = response[:MAX_MESSAGE_LENGTH], response[MAX_MESSAGE_LENGTH:]
-                await update.message.reply_text(chunk)
+                await message.reply_text(chunk)
         except Exception as e:
             logger.error(f"消息处理异常: {str(e)}")
-            await update.message.reply_text("❌ 处理请求时发生错误")
+            await message.reply_text("❌ 处理请求时发生错误")
 
     async def handle_image(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not context.args:
@@ -286,7 +307,13 @@ async def main():
             CommandHandler("image", bot.handle_image),
             CommandHandler("image_option", bot.handle_image_option),
             CommandHandler("log", bot.handle_log),
-            MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_message)
+            MessageHandler(
+                filters.TEXT & ~filters.COMMAND & (
+                    filters.ChatType.PRIVATE | 
+                    filters.Mentioned(entity_type=MessageEntity.MENTION)
+                ),
+                bot.handle_message
+            )
         ]
         
         application.add_handlers(handlers)
