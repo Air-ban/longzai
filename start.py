@@ -195,7 +195,7 @@ class OllamaBot:
                 return
 
             # 使用正则表达式匹配@提及
-            mention_pattern = re.compile(rf"@({re.escape(bot_username)}", re.IGNORECASE)
+            mention_pattern = re.compile(rf"@{re.escape(bot_username)}", re.IGNORECASE)
             if not mention_pattern.search(message.text):
                 return
             
