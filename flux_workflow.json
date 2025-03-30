@@ -151,7 +151,7 @@
   },
   "26": {
     "inputs": {
-      "guidance": 5.5,
+      "guidance": 6.8,
       "conditioning": [
         "6",
         0

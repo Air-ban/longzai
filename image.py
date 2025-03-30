@@ -72,9 +72,9 @@ def text_to_image(prompt_text, local_save_dir='./output', api_file='flux_workflo
     prompt["6"]["inputs"]["text"] = prompt_text
     
     # 如果需要，可以在这里更新其他参数，例如：
-    prompt["17"]["inputs"]["steps"] = 15
-    prompt["27"]["inputs"]["width"] = 768
-    prompt["27"]["inputs"]["height"] = 768
+    prompt["17"]["inputs"]["steps"] = 18
+    prompt["27"]["inputs"]["width"] = 1024
+    prompt["27"]["inputs"]["height"] = 1024
     
     # 更新 LoRA 设置
     if lora1_name is not None:
