@@ -72,7 +72,7 @@ def text_to_image(prompt_text, local_save_dir='./output', api_file='flux_workflo
     prompt["6"]["inputs"]["text"] = prompt_text
     
     # 如果需要，可以在这里更新其他参数，例如：
-    prompt["17"]["inputs"]["steps"] = 18
+    prompt["17"]["inputs"]["steps"] = 20
     prompt["27"]["inputs"]["width"] = 1024
     prompt["27"]["inputs"]["height"] = 1024
     
