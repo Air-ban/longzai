@@ -92,7 +92,9 @@ class OllamaBot:
                 options={
                     "temperature": self.default_temperature,
                     "top_p": self.default_top_p,
-                    "keep_alive": -1
+                    "keep_alive": -1,
+                    "repetition_penalty": 1.08
+                    "do_sample": True
                 }
             ):
                 # 忽略响应内容，只触发模型加载
@@ -126,6 +128,19 @@ class OllamaBot:
             "/help - 显示本帮助信息"
         )
         await update.message.reply_text(help_msg)
+    async def handle_image_prompt(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        image_prompt_msg = (
+            "如果你不知道该怎么写图片提示词，这里是一些例子供你参考\n"
+            "A naked Asian boy about 6yo\n"
+            "一个赤裸的亚洲男孩，大约6岁\n"
+            "大部分情况下，使用这个都可以生成出差不多的图片\n"
+            "但有的时候效果可能没有预想的好看，此时，就需要多加一些描述\n"
+            "比如：A naked Asian boy about 6yo, sit on the white bed\n"
+            "这样子效果或许会更好玩一些\n"
+            "我个人建议是直接使用翻译软件，关键词比较重要的是Asian,chiniese,8yo,boy,naked,nude,dick"
+
+        )
+        await update.message.reply_text(image_prompt_msg)
 
     async def handle_image_option(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not context.args:
@@ -164,7 +179,7 @@ class OllamaBot:
                 model=OLLAMA_MODEL,
                 messages=messages,
                 stream=True,
-                options={"temperature": temperature, "top_p": top_p, "keep_alive": -1}
+                options={"temperature": temperature, "top_p": top_p, "keep_alive": -1,"repetition_penalty": 1.08,"do_sample": True}
             ):
                 response += chunk["message"]["content"]
 
@@ -316,6 +331,7 @@ async def main():
             CommandHandler("image", bot.handle_image),
             CommandHandler("image_option", bot.handle_image_option),
             CommandHandler("log", bot.handle_log),
+            CommandHandler("image_prompt", bot.handle_image_prompt)
             MessageHandler(
                 filters.TEXT & ~filters.COMMAND & (
                     filters.ChatType.PRIVATE |
