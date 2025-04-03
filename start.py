@@ -93,7 +93,7 @@ class OllamaBot:
                     "temperature": self.default_temperature,
                     "top_p": self.default_top_p,
                     "keep_alive": -1,
-                    "repetition_penalty": 1.08
+                    "repetition_penalty": 1.08,
                     "do_sample": True
                 }
             ):
@@ -331,7 +331,7 @@ async def main():
             CommandHandler("image", bot.handle_image),
             CommandHandler("image_option", bot.handle_image_option),
             CommandHandler("log", bot.handle_log),
-            CommandHandler("image_prompt", bot.handle_image_prompt)
+            CommandHandler("image_prompt", bot.handle_image_prompt),
             MessageHandler(
                 filters.TEXT & ~filters.COMMAND & (
                     filters.ChatType.PRIVATE |
