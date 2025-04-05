@@ -92,9 +92,7 @@ class OllamaBot:
                 options={
                     "temperature": self.default_temperature,
                     "top_p": self.default_top_p,
-                    "keep_alive": -1,
-                    "repetition_penalty": 1.08,
-                    "do_sample": True
+                    "repeat_penalty": 1.08
                 }
             ):
                 # 忽略响应内容，只触发模型加载
@@ -179,7 +177,7 @@ class OllamaBot:
                 model=OLLAMA_MODEL,
                 messages=messages,
                 stream=True,
-                options={"temperature": temperature, "top_p": top_p, "keep_alive": -1,"repetition_penalty": 1.08,"do_sample": True}
+                options={"temperature": temperature, "top_p": top_p,"repeat_penalty": 1.08}
             ):
                 response += chunk["message"]["content"]
 
