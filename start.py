@@ -57,19 +57,19 @@ class OllamaBot:
             "凯文": {
                 "lora1_name": "kaiwen_adobe_penis_000004000.safetensors",
                 "lora1_strength": 1.0,
-                "lora2_name": "bfp.safetensors",
+                "lora2_name": "fluxpiruan-000012.safetensors",
                 "lora2_strength": 0.8
             },
             "龙仔": {
                 "lora1_name": "pxr.safetensors",
                 "lora1_strength": 1.0,
-                "lora2_name": "bfp.safetensors",
-                "lora2_strength": 0.7
+                "lora2_name": "fluxpiruan-000012.safetensors",
+                "lora2_strength": 0.8
             },
             "李球球": {
                 "lora1_name": "liqiuqiu.safetensors",
                 "lora1_strength": 1.0,
-                "lora2_name": "bfp.safetensors",
+                "lora2_name": "fluxpiruan-000012.safetensors",
                 "lora2_strength": 0.8
             }
         }
