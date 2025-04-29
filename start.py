@@ -175,7 +175,7 @@ class OllamaBot:
                 model=OLLAMA_MODEL,
                 messages=messages,
                 stream=True,
-                options={"temperature": temperature, "top_p": top_p,"repeat_penalty": 1.08}
+                options={"temperature": temperature, "top_p": top_p,"repeat_penalty": 1.08,"num_predict":512}
             ):
                 response += chunk["message"]["content"]
 
