@@ -26,9 +26,9 @@ logger = logging.getLogger(__name__)
 
 # 配置参数
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "longzai:latest")
-MAX_HISTORY = int(os.getenv("MAX_HISTORY", 10))
-MAX_MESSAGE_LENGTH = 4096
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "dsv3:lateset")
+MAX_HISTORY = int(os.getenv("MAX_HISTORY", 4))
+MAX_MESSAGE_LENGTH = 2048
 
 class OllamaBot:
     def __init__(self):
