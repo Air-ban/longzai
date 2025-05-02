@@ -109,13 +109,6 @@ class OllamaBot:
         await update.message.reply_text(
             f"👋 你好 {user.first_name}哥哥！我是{self.default_profile['name']}，"
             f"今年{self.default_profile['age']}岁，{self.default_profile['base_description']}\n\n"
-            "你可以用以下命令自定义我：\n"
-            "/set_name - 设置我的名字\n"
-            "/set_age - 设置我的年龄\n"
-            "/set_desc - 添加我的描述（不会覆盖原有描述）\n"
-            "/myprofile - 查看我的当前设定\n"
-            "/reset - 重置对话历史\n"
-            "/help - 显示帮助信息"
         )
 
     async def handle_set_name(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
