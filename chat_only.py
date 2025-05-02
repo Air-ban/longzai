@@ -14,6 +14,8 @@ from telegram.ext import (
     filters
 )
 from ollama import AsyncClient
+import aiofiles
+import aiofiles.os as aio_os
 
 # 配置日志
 logging.basicConfig(
@@ -189,6 +191,23 @@ class OllamaBot:
             f"{self.generate_system_prompt(user.id, user.first_name)[:400]}..."
         )
         await update.message.reply_text(response)
+    async def handle_log(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            async with aiofiles.open("changelog.txt", "r", encoding="utf-8") as f:
+                content = await f.read()
+
+            if not content:
+                await update.message.reply_text("暂无更新日志")
+                return
+
+            while content:
+                chunk, content = content[:MAX_MESSAGE_LENGTH], content[MAX_MESSAGE_LENGTH:]
+                await update.message.reply_text(chunk)
+        except FileNotFoundError:
+            await update.message.reply_text("❌ 日志文件未找到")
+        except Exception as e:
+            logger.error(f"日志读取失败: {str(e)}")
+            await update.message.reply_text("❌ 读取日志失败")
 
     async def handle_reset(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """重置对话历史 /reset"""
@@ -305,6 +324,7 @@ async def main():
             CommandHandler("set_desc", bot.handle_set_desc),
             CommandHandler("myprofile", bot.handle_myprofile),
             CommandHandler("reset", bot.handle_reset),
+            CommandHandler("log", bot.handle_log),
             CommandHandler("help", bot.handle_help),
             MessageHandler(
                 filters.TEXT & ~filters.COMMAND & (
