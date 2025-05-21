@@ -1,0 +1,12 @@
+{
+    "lora_presets": {
+        "测试": {
+            "lora1_name": "test.safetensors",
+            "lora1_strength": 1.0
+        },
+        "新预设": {
+            "lora1_name": "new.safetensors",
+            "lora1_strength": 0.9
+        }
+    }
+}
