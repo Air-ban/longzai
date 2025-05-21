@@ -1,12 +1,19 @@
-import os
-import json
-import hashlib
-import logging
-import re
 import asyncio
-from pathlib import Path
+import hashlib
+import json
+import logging
+import os
+import random
+import re
+import time
 from collections import deque
+from pathlib import Path
 from typing import Dict, Deque
+
+import aiofiles
+import aiofiles.os as aio_os
+from ollama import AsyncClient
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram import Update
 from telegram.constants import ChatType, MessageEntityType
 from telegram.ext import (
@@ -16,9 +23,7 @@ from telegram.ext import (
     MessageHandler,
     filters
 )
-from ollama import AsyncClient
-import aiofiles
-import aiofiles.os as aio_os
+from telegram.ext import CallbackQueryHandler
 
 # 配置日志
 logging.basicConfig(
@@ -28,11 +33,27 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # 配置参数
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8101052682:AAFHdZglMXKvGqEzCCDgrV7RNJ5OEpxqSm8")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "BOT_TOKEN")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "deepseek-r1:1.5b")
 MAX_HISTORY = int(os.getenv("MAX_HISTORY", 6))
 MAX_MESSAGE_LENGTH = 2048
-
+# 配置参数（添加图片存储路径）
+IMAGE_STORAGE_PATH = Path("images")
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+# 自定义LoRA相关配置
+CUSTOM_LORA_KEYBOARD_TIMEOUT = 300
+# 配置参数（添加项目名限制）
+MAX_PROJECT_NAME_LENGTH = 50
+MIN_PROJECT_NAME_LENGTH = 3
+VALID_PROJECT_NAME_REGEX = r"^[a-zA-Z0-9_\-\u4e00-\u9fa5]+$"# 允许中英文、数字、下划线和短横线
+# 默认图片生成提示词库（中文）
+DEFAULT_IMAGE_PROMPTS = [
+    "A naked Asian boy about 6yo",
+    "A naked boy sitting on a white bed",
+    "A cute boy wearing a dinosaur pajama",
+    "An Asian boy playing in the park"
+]
 
 class OllamaBot:
     def __init__(self):
@@ -50,6 +71,16 @@ class OllamaBot:
 
         # 初始化配置
         self.load_config()
+        self.upload_mode_users = set()  # 正在上传的用户ID集合
+        self.setup_image_storage()
+        self.custom_lora_states = {}  # {user_id: {"step": "menu", "project_name": None}}
+    def setup_image_storage(self):
+        """创建存储目录"""
+        try:
+            IMAGE_STORAGE_PATH.mkdir(exist_ok=True)
+            logger.info(f"✅ 图片存储目录已就绪: {IMAGE_STORAGE_PATH}")
+        except Exception as e:
+            logger.error(f"❌ 创建存储目录失败: {str(e)}")
 
     def load_config(self):
         """加载配置文件并缓存哈希值"""
@@ -278,6 +309,74 @@ class OllamaBot:
             f"✅ 已添加描述！\n现在我的完整描述是:\n{full_desc}"
         )
 
+    async def handle_random_image(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """处理随机图片生成指令"""
+        if update.message.chat.type != ChatType.PRIVATE:
+            await update.message.reply_text("❌ 此功能仅限私聊使用")
+            return
+
+        user_id = update.effective_user.id
+
+        # 检查配置更新
+        if self.check_config_update():
+            logger.info("🔄 检测到配置更新，已重新加载")
+
+        # 随机选择提示词
+        prompt = random.choice(DEFAULT_IMAGE_PROMPTS)
+        await update.message.reply_text(f"🎲 使用随机提示词生成图片:\n{prompt}")
+
+        # 获取LoRA参数
+        lora1_name = self.user_lora1_name.get(user_id, self.default_lora1_name)
+        lora1_strength = self.user_lora1_strength.get(user_id, self.default_lora1_strength)
+        lora2_name = self.user_lora2_name.get(user_id, self.default_lora2_name)
+        lora2_strength = self.user_lora2_strength.get(user_id, self.default_lora2_strength)
+
+        try:
+            await context.bot.send_chat_action(
+                chat_id=update.effective_chat.id,
+                action="upload_photo"
+            )
+
+            # 调用图片生成脚本
+            process = await asyncio.create_subprocess_exec(
+                "python3", "image.py",
+                "--prompt", prompt,
+                "--api_file", "flux_workflow.json",
+                "--lora1_name", lora1_name,
+                "--lora1_strength", str(lora1_strength),
+                "--lora2_name", lora2_name,
+                "--lora2_strength", str(lora2_strength),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+
+            if process.returncode == 0:
+                image_paths = stdout.decode().strip().splitlines()
+                for path in image_paths:
+                    try:
+                        abs_path = os.path.abspath(path.strip())
+                        async with aiofiles.open(abs_path, "rb") as f:
+                            photo_data = await f.read()
+                            await update.message.reply_photo(photo_data)
+                    except Exception as send_error:
+                        logger.error(f"图片发送失败: {str(send_error)}")
+                        await update.message.reply_text("❌ 图片发送失败")
+                    finally:
+                        try:
+                            if await aio_os.path.exists(abs_path):
+                                await aio_os.remove(abs_path)
+                                logger.info(f"已删除临时文件: {abs_path}")
+                        except Exception as delete_error:
+                            logger.error(f"删除文件失败: {str(delete_error)}")
+            else:
+                error_msg = stderr.decode()[:500]
+                await update.message.reply_text(f"❌ 生成失败: {error_msg}")
+
+        except Exception as e:
+            logger.error(f"图片生成异常: {str(e)}")
+            await update.message.reply_text("❌ 图片生成时发生错误")
+
     async def handle_myprofile(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """查看当前设定 /myprofile"""
         user = update.effective_user
@@ -384,6 +483,174 @@ class OllamaBot:
         self.user_lora2_name[user_id] = preset["lora2_name"]
         self.user_lora2_strength[user_id] = preset["lora2_strength"]
         await update.message.reply_text(f"✅ 生图已切换至 {preset_name} 预设")
+    async def handle_custom_lora(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """处理自定义LoRA指令"""
+        user = update.effective_user
+        user_dir = IMAGE_STORAGE_PATH / f"{user.id}_{user.username}"
+
+        # 初始化状态
+        self.custom_lora_states[user.id] = {"step": "menu"}
+
+        # 获取现有项目
+        projects = []
+        if user_dir.exists():
+            projects = [d.name for d in user_dir.iterdir() if d.is_dir()]
+
+        # 构建键盘
+        keyboard = []
+        # 添加现有项目按钮
+        for project in projects:
+            keyboard.append([InlineKeyboardButton(project, callback_data=f"select:{project}")])
+
+        # 添加新建项目按钮
+        keyboard.append([InlineKeyboardButton("🆕 新建项目", callback_data="new_project")])
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(
+            "📁 自定义LoRA项目管理\n"
+            "请选择现有项目或新建项目：",
+            reply_markup=reply_markup
+        )
+
+    async def handle_custom_lora_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """处理自定义LoRA按钮交互"""
+        query = update.callback_query
+        user = query.from_user
+        data = query.data
+
+        try:
+            # 处理项目选择
+            if data.startswith("select:"):
+                project_name = data.split(":", 1)[1]
+                self.custom_lora_states[user.id] = {
+                    "step": "selected",
+                    "project_name": project_name
+                }
+                await query.edit_message_text(
+                    f"✅ 已选择项目：{project_name}\n"
+                    "请直接发送图片进行上传"
+                )
+
+            # 处理新建项目
+            elif data == "new_project":
+                self.custom_lora_states[user.id] = {"step": "awaiting_project"}
+                await query.edit_message_text(
+                    "📁 请输入新项目名称（支持中文/英文/数字/下划线/短横线）\n"
+                    "例如：凯文角色 或 kaiwen_001"
+                )
+
+            # 处理完成上传
+            elif data == "complete_upload":
+                if user.id in self.custom_lora_states:
+                    del self.custom_lora_states[user.id]
+                await query.edit_message_text("✅ 自定义LoRA数据集上传完毕，请等待训练...")
+
+            # 处理继续上传
+            elif data == "continue_upload":
+                await query.edit_message_text("📸 继续上传图片...")
+
+        except Exception as e:
+            logger.error(f"按钮交互失败: {str(e)}")
+            await query.answer("操作失败，请重试")
+
+    async def handle_set_project(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """处理项目名设置"""
+        user = update.effective_user
+        state = self.custom_lora_states.get(user.id, {})
+
+        if state.get("step") != "awaiting_project":
+            return
+
+        project_name = update.message.text.strip()
+
+        # 验证项目名
+        if len(project_name) > MAX_PROJECT_NAME_LENGTH:
+            await update.message.reply_text(f"❌ 项目名不能超过{MAX_PROJECT_NAME_LENGTH}个字符")
+            return
+
+        if not re.match(VALID_PROJECT_NAME_REGEX, project_name):
+            await update.message.reply_text("❌ 包含非法字符！仅支持：字母/数字/下划线/短横线/中文")
+            return
+
+        # 更新状态
+        self.custom_lora_states[user.id] = {
+            "step": "uploading",
+            "project_name": project_name
+        }
+
+        # 创建目录
+        user_dir = IMAGE_STORAGE_PATH / f"{user.id}_{user.username}"
+        project_dir = user_dir / project_name
+        try:
+            project_dir.mkdir(parents=True, exist_ok=True)
+            await update.message.reply_text(
+                f"✅ 已创建项目目录：{project_name}\n"
+                "现在请发送图片（支持批量上传，至少8张及以上）"
+            )
+        except Exception as e:
+            logger.error(f"❌ 创建项目目录失败: {str(e)}")
+            await update.message.reply_text("❌ 创建项目目录失败")
+
+    async def handle_user_images(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """处理用户上传的图片"""
+        user = update.effective_user
+        state = self.custom_lora_states.get(user.id, {})
+
+        if state.get("step") not in ["selected", "uploading"]:
+            return
+
+        if not update.message.photo:
+            return
+
+        # 获取最高质量的图片
+        photo = update.message.photo[-1]
+        file_id = photo.file_id
+        file_size = photo.file_size
+
+        if file_size > MAX_FILE_SIZE:
+            await update.message.reply_text("❌ 文件过大（超过10MB）")
+            return
+
+        # 构建路径
+        user_dir = IMAGE_STORAGE_PATH / f"{user.id}_{user.username}"
+        project_dir = user_dir / state["project_name"]
+
+        # 验证目录存在
+        if not project_dir.exists():
+            try:
+                project_dir.mkdir(parents=True, exist_ok=False)
+            except Exception as e:
+                logger.error(f"❌ 目录异常: {str(e)}")
+                await update.message.reply_text("❌ 存储目录异常")
+                return
+
+        # 下载文件
+        try:
+            file = await context.bot.get_file(file_id)
+            file_ext = os.path.splitext(file.file_path)[1].lower()
+
+            if file_ext not in ALLOWED_EXTENSIONS:
+                await update.message.reply_text("❌ 不支持的文件类型")
+                return
+
+            file_name = f"{int(time.time())}_{file_id}{file_ext}"
+            save_path = project_dir / file_name
+
+            await file.download_to_drive(save_path)
+
+            # 发送确认按钮
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ 完成上传", callback_data="complete_upload")],
+                [InlineKeyboardButton("📸 继续上传", callback_data="continue_upload")]
+            ])
+            await update.message.reply_text(
+                f"✅ 已保存图片: {file_name}\n"
+                "请选择操作：",
+                reply_markup=keyboard
+            )
+        except Exception as e:
+            logger.error(f"❌ 图片保存失败: {str(e)}")
+            await update.message.reply_text("❌ 图片保存失败")
 
     async def generate_response(self, user_id: int, user_name: str, prompt: str) -> str:
         """生成AI回复"""
@@ -534,6 +801,11 @@ async def main():
             CommandHandler("image", bot.handle_image),
             CommandHandler("image_option", bot.handle_image_option),
             CommandHandler("image_prompt", bot.handle_image_prompt),
+            CommandHandler("random_image", bot.handle_random_image),
+            CommandHandler("custom_lora", bot.handle_custom_lora),
+            CallbackQueryHandler(bot.handle_custom_lora_callback),
+            MessageHandler(filters.TEXT & filters.Regex(r'^[^/].+$'), bot.handle_set_project),
+            MessageHandler(filters.PHOTO, bot.handle_user_images),
             MessageHandler(
                 filters.TEXT & ~filters.COMMAND & (
                         filters.ChatType.PRIVATE |
@@ -556,7 +828,6 @@ async def main():
         if 'application' in locals():
             await application.stop()
             await application.shutdown()
-
 
 if __name__ == "__main__":
     asyncio.run(main())
