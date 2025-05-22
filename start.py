@@ -54,7 +54,7 @@ DEFAULT_IMAGE_PROMPTS = [
     "A cute boy wearing a dinosaur pajama",
     "An Asian boy playing in the park"
 ]
-
+FIXED_KJ_PROMPT = "A naked Asian boy about 6yo"
 class OllamaBot:
     def __init__(self):
         self.client = AsyncClient(host="http://127.0.0.1:11434")
@@ -590,6 +590,80 @@ class OllamaBot:
         except Exception as e:
             logger.error(f"❌ 创建项目目录失败: {str(e)}")
             await update.message.reply_text("❌ 创建项目目录失败")
+
+    async def handle_kj_image(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if update.message.chat.type != ChatType.PRIVATE:
+            await update.message.reply_text("❌ 此功能仅限私聊使用")
+            return
+
+        user_id = update.effective_user.id
+        # 检查配置更新
+        if self.check_config_update():
+            logger.info("🔄 检测到配置更新，已重新加载")
+
+        # 固定提示词
+        prompt = self.FIXED_KJ_PROMPT
+
+        # 随机选择一个 LoRA 预设
+        preset_names = list(self.lora_presets.keys())
+        if not preset_names:
+            await update.message.reply_text("❌ 无可用 LoRA 预设，请检查配置文件")
+            return
+
+        preset_name = random.choice(preset_names)
+        preset = self.lora_presets[preset_name]
+
+        lora1_name = preset["lora1_name"]
+        lora1_strength = preset["lora1_strength"]
+        lora2_name = preset["lora2_name"]
+        lora2_strength = preset["lora2_strength"]
+
+        await update.message.reply_text(f"🎲 使用预设 `{preset_name}` 生成图片")
+
+        try:
+            await context.bot.send_chat_action(
+                chat_id=update.effective_chat.id,
+                action="upload_photo"
+            )
+
+            process = await asyncio.create_subprocess_exec(
+                "python3", "image.py",
+                "--prompt", prompt,
+                "--api_file", "flux_workflow.json",
+                "--lora1_name", lora1_name,
+                "--lora1_strength", str(lora1_strength),
+                "--lora2_name", lora2_name,
+                "--lora2_strength", str(lora2_strength),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+
+            stdout, stderr = await process.communicate()
+
+            if process.returncode == 0:
+                image_paths = stdout.decode().strip().splitlines()
+                for path in image_paths:
+                    try:
+                        abs_path = os.path.abspath(path.strip())
+                        async with aiofiles.open(abs_path, "rb") as f:
+                            photo_data = await f.read()
+                            await update.message.reply_photo(photo_data)
+                    except Exception as send_error:
+                        logger.error(f"图片发送失败: {str(send_error)}")
+                        await update.message.reply_text("❌ 图片发送失败")
+                    finally:
+                        try:
+                            if await aio_os.path.exists(abs_path):
+                                await aio_os.remove(abs_path)
+                                logger.info(f"已删除临时文件: {abs_path}")
+                        except Exception as delete_error:
+                            logger.error(f"删除文件失败: {str(delete_error)}")
+            else:
+                error_msg = stderr.decode()[:500]
+                await update.message.reply_text(f"❌ 生成失败: {error_msg}")
+        except Exception as e:
+            logger.error(f"图片生成异常: {str(e)}")
+            await update.message.reply_text("❌ 图片生成时发生错误")
 
     async def handle_user_images(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """处理用户上传的图片"""
