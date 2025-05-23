@@ -33,7 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # 配置参数
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "BOT_TOKEN")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "your_token")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "deepseek-r1:1.5b")
 MAX_HISTORY = int(os.getenv("MAX_HISTORY", 6))
 MAX_MESSAGE_LENGTH = 2048
@@ -74,13 +74,31 @@ class OllamaBot:
         self.upload_mode_users = set()  # 正在上传的用户ID集合
         self.setup_image_storage()
         self.custom_lora_states = {}  # {user_id: {"step": "menu", "project_name": None}}
-    def setup_image_storage(self):
-        """创建存储目录"""
+    async def setup_image_storage(self):
+        """创建并监控存储目录"""
         try:
             IMAGE_STORAGE_PATH.mkdir(exist_ok=True)
             logger.info(f"✅ 图片存储目录已就绪: {IMAGE_STORAGE_PATH}")
+            
+            # 启动后台任务监控图片目录
+            asyncio.create_task(self._monitor_image_directory())
         except Exception as e:
             logger.error(f"❌ 创建存储目录失败: {str(e)}")
+    
+    async def _monitor_image_directory(self):
+        """监控图片目录的变化"""
+        while True:
+            try:
+                # 检查目录是否存在，不存在则创建
+                if not IMAGE_STORAGE_PATH.exists():
+                    IMAGE_STORAGE_PATH.mkdir(exist_ok=True)
+                    logger.info(f"✅ 重新创建图片存储目录: {IMAGE_STORAGE_PATH}")
+                
+                # 每秒检查一次目录
+                await asyncio.sleep(1)
+            except Exception as e:
+                logger.error(f"❌ 监控图片目录时发生错误: {str(e)}")
+                await asyncio.sleep(5)  # 发生错误时等待较长时间再重试
 
     def load_config(self):
         """加载配置文件并缓存哈希值"""
