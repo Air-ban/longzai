@@ -6,9 +6,11 @@ import os
 import random
 import re
 import time
-from collections import deque
+from collections import defaultdict, deque
 from pathlib import Path
 from typing import Dict, Deque
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 import aiofiles
 import aiofiles.os as aio_os
@@ -68,9 +70,11 @@ class OllamaBot:
         # 配置文件相关
         self.config_path = Path("config.json")
         self.last_config_hash = None
+        self.config = {}
 
         # 初始化配置
         self.load_config()
+        self.setup_config_watcher()
         self.upload_mode_users = set()  # 正在上传的用户ID集合
         self.setup_image_storage()
         self.custom_lora_states = {}  # {user_id: {"step": "menu", "project_name": None}}
@@ -106,6 +110,9 @@ class OllamaBot:
             if self.config_path.exists():
                 with open(self.config_path, "r", encoding="utf-8") as f:
                     self.config = json.load(f)
+                    # 确保user_loras字段存在
+                    if "user_loras" not in self.config:
+                        self.config["user_loras"] = {}
 
                 # 记录当前配置文件哈希值
                 current_hash = hashlib.md5(open(self.config_path, "rb").read()).hexdigest()
@@ -195,8 +202,92 @@ class OllamaBot:
                 }
             }
 
+    async def notify_lora_completion(self, user_id: int, lora_name: str):
+        """通知用户LoRA训练完成"""
+        try:
+            # 更新配置文件中的用户LoRA映射
+            if "user_loras" not in self.config:
+                self.config["user_loras"] = {}
+            
+            if str(user_id) not in self.config["user_loras"]:
+                self.config["user_loras"][str(user_id)] = []
+            
+            # 添加新的LoRA记录
+            self.config["user_loras"][str(user_id)].append({
+                "lora_name": lora_name,
+                "created_at": time.strftime("%Y-%m-%d %H:%M:%S")
+            })
+            
+            # 保存配置文件
+            async with aiofiles.open(self.config_path, "w", encoding="utf-8") as f:
+                await f.write(json.dumps(self.config, indent=4, ensure_ascii=False))
+            
+            # 发送通知给用户
+            app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+            try:
+                await app.bot.send_message(
+                    chat_id=user_id,
+                    text=f"🎉 恭喜！你的LoRA模型 {lora_name} 已经训练完成，可以开始使用了！"
+                )
+                logger.info(f"✅ 成功通知用户 {user_id} LoRA训练完成")
+            except Exception as e:
+                logger.error(f"❌ 发送LoRA完成通知失败: {str(e)}")
+            finally:
+                await app.shutdown()
+        except Exception as e:
+            logger.error(f"❌ 处理LoRA完成通知失败: {str(e)}")
+    
+    def setup_config_watcher(self):
+        """设置配置文件监视器"""
+        class ConfigHandler(FileSystemEventHandler):
+            def __init__(self, callback):
+                self.callback = callback
+                self.last_modified = 0
+                
+            def on_modified(self, event):
+                if event.src_path == str(self.callback.config_path):
+                    # 防止重复触发
+                    current_time = time.time()
+                    if current_time - self.last_modified > 1:
+                        self.last_modified = current_time
+                        asyncio.create_task(self.callback.handle_config_update())
+        
+        observer = Observer()
+        handler = ConfigHandler(self)
+        observer.schedule(handler, str(self.config_path.parent), recursive=False)
+        observer.start()
+        
+    async def handle_config_update(self):
+        """处理配置文件更新"""
+        try:
+            if not self.config_path.exists():
+                return
+
+            current_hash = hashlib.md5(open(self.config_path, "rb").read()).hexdigest()
+            if current_hash != self.last_config_hash:
+                # 保存旧配置中的user_loras信息
+                old_user_loras = self.config.get("user_loras", {})
+                
+                # 加载新配置
+                self.load_config()
+                
+                # 获取新配置中的user_loras信息
+                new_user_loras = self.config.get("user_loras", {})
+                
+                # 对比变化并通知相关用户
+                for user_id, new_loras in new_user_loras.items():
+                    old_loras = old_user_loras.get(user_id, [])
+                    # 检查是否有新增的LoRA
+                    for lora in new_loras:
+                        if lora not in old_loras:
+                            # 异步通知用户新的LoRA已经准备就绪
+                            await self.notify_lora_completion(int(user_id), lora["lora_name"])
+                            
+        except Exception as e:
+            logger.error(f"❌ 配置文件更新处理失败: {str(e)}")
+            
     def check_config_update(self):
-        """检查配置文件更新"""
+        """检查配置文件更新（用于向后兼容）"""
         try:
             if not self.config_path.exists():
                 return False

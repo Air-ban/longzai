@@ -24,5 +24,6 @@
             "lora2_name": "fluxpiruan-000012.safetensors",
             "lora2_strength": 0.8
         }
-    }
+    },
+    "user_loras": {}
 }
