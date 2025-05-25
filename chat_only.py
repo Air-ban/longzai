@@ -52,7 +52,6 @@ class OllamaBot:
                 "你需要称呼用户为{user_title}"
             )
         }
-
     async def initialize(self):
         """异步初始化"""
         logger.info("开始模型预加载...")

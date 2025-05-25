@@ -1,3 +1,4 @@
+watchdog>=3.0.0
 aiofiles==24.1.0
 ollama==0.4.8
 Pillow==11.2.1

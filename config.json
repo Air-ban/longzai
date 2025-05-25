@@ -1,28 +1,82 @@
 {
-    "default_lora": {
-        "lora1_name": "kaiwen_adobe_penis_000004000.safetensors",
-        "lora1_strength": 1.0,
-        "lora2_name": "fluxpiruan-000012.safetensors",
-        "lora2_strength": 0.8
-    },
-    "lora_presets": {
-        "凯文": {
-            "lora1_name": "kaiwen_adobe_penis_000004000.safetensors",
-            "lora1_strength": 1.0,
-            "lora2_name": "fluxpiruan-000012.safetensors",
-            "lora2_strength": 0.8
+    "system_lora": {
+        "李球球": {
+            "lora1_name": "xxx.safe",
+            "lora1_strongth": 1,
+            "lora2_name": "xxx.safe",
+            "lora2_strongth": 1
         },
         "龙仔": {
-            "lora1_name": "pxr.safetensors",
-            "lora1_strength": 1.0,
-            "lora2_name": "fluxpiruan-000012.safetensors",
-            "lora2_strength": 0.8
-        },
-        "李球球": {
-            "lora1_name": "liqiuqiu.safetensors",
-            "lora1_strength": 1.0,
-            "lora2_name": "fluxpiruan-000012.safetensors",
-            "lora2_strength": 0.8
+            "lora1_name": "xxx.safe",
+            "lora1_strongth": 1,
+            "lora2_name": "xxx.safe",
+            "lora2_strongth": 1
         }
-    }
+    },
+    "user_lora": {
+        "kaiwen666": {
+            "lora1_name": "xxx.safe",
+            "lora1_strongth": 1,
+            "lora2_name": "xxx.safe",
+            "lora2_strongth": 1,
+            "user_name": "xi_luo",
+            "chat_id": 22222222
+        },
+        "xi_luo": {
+            "lora1_name": "xxx.safe",
+            "lora1_strongth": 1,
+            "lora2_name": "xxx.safe",
+            "lora2_strongth": 1,
+            "user_name": "xi_luo",
+            "chat_id": 22222222
+        },
+        "xi_luo5": {
+            "lora1_name": "xxx.safe",
+            "lora1_strongth": 1,
+            "lora2_name": "xxx.safe",
+            "lora2_strongth": 1,
+            "user_name": "xi_luo",
+            "chat_id": 7938628420
+        },
+        "xi_luo6": {
+            "lora1_name": "xxx.safe",
+            "lora1_strongth": 1,
+            "lora2_name": "xxx.safe",
+            "lora2_strongth": 1,
+            "user_name": "xi_luo",
+            "chat_id": 7938628420
+        },
+        "xi_luo7": {
+            "lora1_name": "xxx.safe",
+            "lora1_strongth": 1,
+            "lora2_name": "xxx.safe",
+            "lora2_strongth": 1,
+            "user_name": "xi_luo",
+            "chat_id": 7938628420
+        },
+        "xi_luo8": {
+            "lora1_name": "xxx.safe",
+            "lora1_strongth": 1,
+            "lora2_name": "xxx.safe",
+            "lora2_strongth": 1,
+            "user_name": "xi_luo",
+            "chat_id": 7938628420
+        },
+        "xi_luo9": {
+            "lora1_name": "xxx.safe",
+            "lora1_strongth": 1,
+            "lora2_name": "xxx.safe",
+            "lora2_strongth": 1,
+            "user_name": "xi_luo",
+            "chat_id": 7938628420
+        }
+    },
+    "white_list": [
+        "kaiwen666",
+        "xi_luo5",
+        "xi_luo6",
+        "xi_luo7",
+        "xi_luo8",
+        "xi_luo9"
+    ]
 }

@@ -1,3 +1,5 @@
 .venv
 .idea
 .vscode
+__pycache__/monitor_config.cpython-312.pyc
+images/
