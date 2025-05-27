@@ -71,5 +71,5 @@ class TelegramNotifier:
         asyncio.create_task(self._monitor_task())
 
 if __name__ == '__main__':
-    notifier = TelegramNotifier('d:/longzai_test/config.json', '8101052682:AAFHdZglMXKvGqEzCCDgrV7RNJ5OEpxqSm8')
+    notifier = TelegramNotifier('config.json_path', 'your_token')
     notifier.monitor()

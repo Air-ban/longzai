@@ -34,7 +34,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # 配置参数
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8101052682:AAFHdZglMXKvGqEzCCDgrV7RNJ5OEpxqSm8")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "your_token")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "deepseek-r1:1.5b")
 MAX_HISTORY = int(os.getenv("MAX_HISTORY", 6))
 MAX_MESSAGE_LENGTH = 2048
@@ -921,7 +921,7 @@ class OllamaBot:
 
 
 async def main():
-    notifier = TelegramNotifier('d:/longzai/config.json', TELEGRAM_TOKEN)
+    notifier = TelegramNotifier('config.json', TELEGRAM_TOKEN)
     # 启动监控任务
     notifier.monitor()
     try:
