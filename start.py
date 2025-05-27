@@ -6,7 +6,7 @@ import os
 import random
 import re
 import time
-from collections import deque
+from collections import defaultdict, deque
 from pathlib import Path
 from typing import Dict, Deque
 import asyncio
@@ -75,9 +75,11 @@ class OllamaBot:
         # 配置文件相关
         self.config_path = Path("config.json")
         self.last_config_hash = None
+        self.config = {}
 
         # 初始化配置
         self.load_config()
+        self.setup_config_watcher()
         self.upload_mode_users = set()  # 正在上传的用户ID集合
         self.setup_image_storage()
         self.custom_lora_states = {}  # {user_id: {"step": "menu", "project_name": None}}
@@ -113,6 +115,9 @@ class OllamaBot:
             if self.config_path.exists():
                 with open(self.config_path, "r", encoding="utf-8") as f:
                     self.config = json.load(f)
+                    # 确保user_loras字段存在
+                    if "user_loras" not in self.config:
+                        self.config["user_loras"] = {}
 
                 # 记录当前配置文件哈希值
                 current_hash = hashlib.md5(open(self.config_path, "rb").read()).hexdigest()
@@ -177,7 +182,7 @@ class OllamaBot:
             self.lora_presets = self.system_lora
 
     def check_config_update(self):
-        """检查配置文件更新"""
+        """检查配置文件更新（用于向后兼容）"""
         try:
             if not self.config_path.exists():
                 return False
