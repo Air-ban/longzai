@@ -124,20 +124,7 @@ class OllamaBot:
                 self.last_config_hash = current_hash
 
                 # 从配置加载LoRA参数
-                self.system_lora = self.config.get("system_lora", {
-                    "李球球": {
-                        "lora1_name": "liqiuqiu.safetensors",
-                        "lora1_strength": 1.0,
-                        "lora2_name": "fluxpiruan-000012.safetensors",
-                        "lora2_strength": 0.8
-                    },
-                    "龙仔": {
-                        "lora1_name": "pxr.safetensors",
-                        "lora1_strength": 1.0,
-                        "lora2_name": "fluxpiruan-000012.safetensors",
-                        "lora2_strength": 0.8
-                    }
-                })
+                self.system_lora = self.config.get("system_lora")
 
                 # 加载预设配置
                 self.lora_presets = self.config.get("system_lora", self.system_lora)
@@ -346,7 +333,9 @@ class OllamaBot:
 
         # 检查配置更新
         if self.check_config_update():
-            logger.info("🔄 检测到配置更新，已重新加载")
+            logger.info("🔄 检测到配置更新，系统预设值已刷新")
+            # 重新获取最新的LoRA系统预设
+            self.load_config()
 
         # 随机选择提示词
         prompt = random.choice(DEFAULT_IMAGE_PROMPTS)
@@ -460,7 +449,8 @@ class OllamaBot:
             "/help - 显示本帮助信息\n"
             "绘图相关命令：\n"
             "/image [提示词] - 生成图片\n"
-            "/image_option [预设名称] - 切换生图预设（可用预设：凯文/龙仔/李球球）\n"
+            "/image_option [预设名称] - 切换生图预设\n"
+            "/custom_lora - 自定义lora\n"
             "示例：\n"
             "/set_name 小龙\n"
             "/set_age 15\n"
@@ -501,7 +491,9 @@ class OllamaBot:
                 user_presets = "@".join(self.user_lora.keys()) if self.user_lora else ""
                 
             await update.message.reply_text(
-                f"请指定预设名称，当前可用：{system_presets}{user_presets and '，用户预设：'+user_presets or ''}"
+                f"请指定预设名称：\n"
+                f" ├─ 🌟 系统预设：{'/'.join(self.lora_presets.keys())}\n"
+                f" └─ 🧑 用户预设：{'/'.join(self.user_lora.keys()) if self.user_lora else '空'}"
             )
             return
         preset_name = context.args[0]
@@ -709,6 +701,7 @@ class OllamaBot:
                 image_paths = stdout.decode().strip().splitlines()
                 for path in image_paths:
                     try:
+                        # 优先使用绝对路径
                         abs_path = os.path.abspath(path.strip())
                         async with aiofiles.open(abs_path, "rb") as f:
                             photo_data = await f.read()
@@ -718,14 +711,17 @@ class OllamaBot:
                         await update.message.reply_text("❌ 图片发送失败")
                     finally:
                         try:
+                            # 确保文件存在再尝试删除
                             if await aio_os.path.exists(abs_path):
                                 await aio_os.remove(abs_path)
                                 logger.info(f"已删除临时文件: {abs_path}")
+                            else:
+                                logger.warning(f"文件不存在: {abs_path}")
                         except Exception as delete_error:
                             logger.error(f"删除文件失败: {str(delete_error)}")
             else:
                 error_msg = stderr.decode()[:500]
-                await update.message.reply_text(f"❌ 生成失败: {error_msg}")
+                await update.message.reply_text(f"❌ 生成失败")
         except Exception as e:
             logger.error(f"图片生成异常: {str(e)}")
             await update.message.reply_text("❌ 图片生成时发生错误")
