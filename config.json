@@ -2,21 +2,21 @@
     "system_lora": {
         "李球球": {
             "lora1_name": "xxx.safe",
-            "lora1_strongth": 1,
+            "lora1_strength": 1,
             "lora2_name": "xxx.safe",
-            "lora2_strongth": 1
+            "lora2_strength": 1
         },
         "龙仔": {
             "lora1_name": "xxx.safe",
-            "lora1_strongth": 1,
+            "lora1_strength": 1,
             "lora2_name": "xxx.safe",
-            "lora2_strongth": 1
+            "lora2_strength": 1
         }
     },
     "user_lora": {
-
+            
     },
     "white_list": [
- 
+       
     ]
 }
